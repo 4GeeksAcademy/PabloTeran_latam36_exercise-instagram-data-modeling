@@ -1,34 +1,69 @@
 import os
 import sys
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy import create_engine
 from eralchemy2 import render_er
 
 Base = declarative_base()
 
-class Person(Base):
-    __tablename__ = 'person'
-    # Here we define columns for the table person
-    # Notice that each column is also a normal Python instance attribute.
+class User(Base):
+    __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
-    name = Column(String(250), nullable=False)
+    username = Column(String(150), unique=True, nullable=False)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    email = Column(String(200), unique=True, nullable=False)
 
-class Address(Base):
-    __tablename__ = 'address'
-    # Here we define columns for the table address.
-    # Notice that each column is also a normal Python instance attribute.
+    # Relaciones
+    user_posts = relationship("Post", back_populates="author")
+    user_comments = relationship("Comment", back_populates="commenter")
+    followers = relationship("Follower", foreign_keys='Follower.following_id', back_populates="followed_user")
+    following = relationship("Follower", foreign_keys='Follower.follower_id', back_populates="follower_user")
+
+class Post(Base):
+    __tablename__ = 'posts'
     id = Column(Integer, primary_key=True)
-    street_name = Column(String(250))
-    street_number = Column(String(250))
-    post_code = Column(String(250), nullable=False)
-    person_id = Column(Integer, ForeignKey('person.id'))
-    person = relationship(Person)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    content = Column(Text, nullable=False)
 
-    def to_dict(self):
-        return {}
+    # Relaciones
+    author = relationship("User", back_populates="user_posts")
+    post_comments = relationship("Comment", back_populates="related_post")
+    media_files = relationship("Media", back_populates="attached_post")
 
-## Draw from SQLAlchemy base
+class Comment(Base):
+    __tablename__ = 'comments'
+    id = Column(Integer, primary_key=True)
+    text = Column(Text, nullable=False)
+    commenter_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    post_id = Column(Integer, ForeignKey('posts.id'), nullable=False)
+
+    # Relaciones
+    commenter = relationship("User", back_populates="user_comments")
+    related_post = relationship("Post", back_populates="post_comments")
+
+class Media(Base):
+    __tablename__ = 'media_files'
+    id = Column(Integer, primary_key=True)
+    media_type = Column(String(50), nullable=False)
+    url = Column(String(300), nullable=False)
+    post_id = Column(Integer, ForeignKey('posts.id'), nullable=False)
+
+    # Relaciones
+    attached_post = relationship("Post", back_populates="media_files")
+
+class Follower(Base):
+    __tablename__ = 'followers'
+    id = Column(Integer, primary_key=True)
+    follower_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    following_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+
+    # Relaciones
+    follower_user = relationship("User", foreign_keys=[follower_id], back_populates="following")
+    followed_user = relationship("User", foreign_keys=[following_id], back_populates="followers")
+
+## SQLAlchemy base
 try:
     result = render_er(Base, 'diagram.png')
     print("Success! Check the diagram.png file")
